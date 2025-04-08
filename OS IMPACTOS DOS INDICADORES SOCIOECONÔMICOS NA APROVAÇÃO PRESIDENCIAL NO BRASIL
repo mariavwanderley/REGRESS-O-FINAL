@@ -1,0 +1,221 @@
+#####OS IMPACTOS DOS INDICADORES SOCIOECONÔMICOS NA APROVAÇÃO PRESIDENCIAL NO BRASIL#####
+library(readr)
+library(tidyverse)
+library(ggplot2) 
+library(dplyr) 
+library(corrplot)
+library(tidycensus)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(magrittr)
+library(lubridate)
+library(sjPlot) 
+library(corrgram)
+library(ggplot2)
+library(patchwork)
+
+#DADOS ECONOMICOS
+#inflação, desemprego, juros
+
+dados_economicos <- read.csv2("C:/Users/Maria Vitória/Downloads/indicadores-econmicos.csv")  #carreguei os dados
+colnames(dados_economicos) <- c("Data","TX_Desemprego","Tx_Juros","Inflação","Aprovação_P") #renomeei as colunas
+
+dados_economicos$Data <- paste0("01/", dados_economicos$Data) #adicionei um dia na data
+dados_economicos$Data <- as.Date(dados_economicos$Data, format = "%d/%m/%Y") #transformei a data em "Date"
+dados_economicos$Ano <- format(dados_economicos$Data, "%Y")
+dados_economicos$Mes <- format(dados_economicos$Data, "%m") #separei o ano e o mês
+dados_economicos$Ano <-as.integer(dados_economicos$Ano)
+dados_economicos$Mes <-as.integer(dados_economicos$Mes) #transforemi em intenger
+dados_economicos <- dados_economicos[,-1] #tirei a coluna das datas e deixei só mes e ano
+
+dados_economicos<-as.data.frame(dados_economicos) #trasnformei  em data frame
+dados_economicos<- dados_economicos[dados_economicos$Mes %in% c(6,8,9,12),] #selecionei os meses que mais apareciam nas observações
+dados_economicos
+
+summary(dados_economicos) #Estatísticas descritivas
+glimpse(dados_economicos) #tipo dos dados   #preciso mudar o characther para date
+
+
+
+#PIB EM DOLAR
+dados_pib<- read.csv("C:/Users/Maria Vitória/Downloads/PIB_em_dólar.csv")
+dados_pib
+glimpse(dados_pib)
+dados_pib <- dados_pib[, -1] #tirei a primeira coluna vazia
+colnames(dados_pib) <- c("Ano", "PIB") #renomei as colunas
+dados_pib<- dados_pib%>%
+  slice(5:n()) #REMOVE AS 4 PRIMEIRAS LINHAS
+dados_pib$PIB <- as.numeric(dados_pib$PIB) #transformei em numéric p ser melhor de trabalhar
+options(scipen = 999)
+dados_pib$PIB <- format(dados_pib$PIB, big.mark = ",", scientific = FALSE)
+
+#DADOS POBREZA
+dados_pobreza<- read.csv("C:/Users/Maria Vitória/Downloads/Planilha sem título.csv")
+dados_pobreza
+glimpse(dados_pobreza)
+dados_pobreza$Extrema.Pobreza <- gsub(",", ".", dados_pobreza$Extrema.Pobreza)
+dados_pobreza$Pobreza <- gsub(",", ".", dados_pobreza$Pobreza)
+
+dados_pobreza$Extrema.Pobreza <- as.numeric(dados_pobreza$Extrema.Pobreza)
+dados_pobreza$Pobreza <- as.numeric(dados_pobreza$Pobreza)
+
+
+
+#DÍVIDA  PUBLICA
+dados_dívidapub<- read.csv("C:/Users/Maria Vitória/Downloads/dívida pública total.csv")
+dados_dívidapub
+glimpse(dados_dívidapub)
+
+dados_dívidapub$Data <- as.character(dados_dívidapub$Data)
+
+dados_dívidapub$Data <- paste0("01.", dados_dívidapub$Data)
+dados_dívidapub$Data <- as.Date(dados_dívidapub$Data, format = "%d.%Y.%m")
+dados_dívidapub$Ano <- format(dados_dívidapub$Data, "%Y")
+dados_dívidapub$Mes <- format(dados_dívidapub$Data, "%m")
+dados_dívidapub$Ano <- as.integer(dados_dívidapub$Ano)
+dados_dívidapub$Mes <- as.integer(dados_dívidapub$Mes)
+dados_dívidapub<- dados_dívidapub[, -1]
+dados_dívidapub<- dados_dívidapub[dados_dívidapub$Mes %in% c(6,8,9,12),]
+
+colnames(dados_dívidapub)<- c("porcentagem Dívida Pública em relaçao ao PIB",  "Ano", "Mes")
+dados_dívidapub$`porcentagem Dívida Pública em relaçao ao PIB`<- as.numeric(gsub(",", ".", dados_dívidapub$`porcentagem Dívida Pública em relaçao ao PIB`))
+dados_dívidapub
+
+
+#TAXA DE CAMBIO
+dados_txdecambio<- read.csv("C:/Users/Maria Vitória/Downloads/taxa de cambio.csv")
+glimpse(dados_txdecambio)
+dados_txdecambio$Data <- as.Date(dados_txdecambio$Data, format = "%d.%m.%Y")
+dados_txdecambio <- dados_txdecambio %>%
+  arrange(Data)
+
+dados_txdecambio$Ano <- format(dados_txdecambio$Data, "%Y")
+dados_txdecambio$Mes <- format(dados_txdecambio$Data, "%m")
+dados_txdecambio$Ano <- as.integer(dados_txdecambio$Ano)
+dados_txdecambio$Mes <- as.integer(dados_txdecambio$Mes)
+dados_txdecambio
+dados_txdecambio<- dados_txdecambio[, -1]
+colnames(dados_txdecambio)<-c("Tx de câmbio", "Ano", "Mes")
+dados_txdecambio$`Tx de câmbio`<- as.numeric(gsub(",", ".",  dados_txdecambio$`Tx de câmbio` ))
+dados_txdecambio
+dados_txdecambio<- dados_txdecambio[dados_txdecambio$Mes %in% c(6,8,9,12),]
+dados_txdecambio<- dados_txdecambio[, -4]
+
+
+#HOMICÍDIO/VIOLENCIA PUBLICA
+dados_homicidio<- read.csv("C:/Users/Maria Vitória/Downloads/homicidios-1992-01--01-2022-01--01.csv", sep = ";")
+dados_homicidio
+glimpse(dados_homicidio)
+dados_homicidio<- dados_homicidio[,-c(1,2)]
+colnames(dados_homicidio)<- c("Ano","Quantidade de Homicídios")
+dados_homicidio$`Quantidade de Homicídios` <- as.numeric(gsub(",", ".", dados_homicidio$`Quantidade de Homicídios`))
+dados_homicidio$`Quantidade de Homicídios` <- as.integer(dados_homicidio$`Quantidade de Homicídios` )
+
+
+#JUNÇÃO DE TODOS OS BANCOS DE DADOS
+dados_completos <- dados_economicos %>%
+  left_join(dados_pib, by = "Ano") %>%
+  left_join(dados_pobreza, by = "Ano") %>%
+  left_join(dados_dívidapub, by = c("Ano", "Mes")) %>%
+  left_join(dados_txdecambio, by = c("Ano", "Mes")) %>%
+  left_join(dados_homicidio, by = "Ano")  #JUNTEI TODOS OS BANCOS DE DADOS
+
+dados_completos <- dados_completos %>% 
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) #TIREI AS NAS 
+dados_completos$PIB <- as.numeric(gsub(",", "", dados_completos$PIB)) 
+dados_completos 
+dados_completos2<- dados_completos[,-c(1,8,9,2,12,5,6)] #RETIREI AS VARIÁVEIS QUE NÃO ERAM TÃO SIGNIFICATIVAS E ALTAMENTE CORRELACIONADAS
+
+#PCA NÃO FOI EFICIENTE
+
+#CORRELAÇÃO
+
+correlacao<- cor(dados_completos, use = {"complete.obs"})
+correlacao
+corrgram::corrgram(dados_completos)
+corrgram::corrgram(dados_completos2)
+
+#OUTLIERS
+
+boxplot(dados_completos2$Inflação)
+boxplot(dados_completos2$Aprovação_P)
+boxplot(dados_completos2$PIB)
+boxplot(dados_completos2$`porcentagem Dívida Pública em relaçao ao PIB`)
+boxplot(dados_completos2$`Tx de câmbio`)
+
+#SUMMARY P MEDIANA, MAX, MIN
+summary(dados_completos2$Inflação)
+summary(dados_completos2$Aprovação_P)
+summary(dados_completos2$PIB)
+summary(dados_completos2$`porcentagem Dívida Pública em relaçao ao PIB`)
+summary(dados_completos2$`Tx de câmbio`)
+
+
+###MODELOS 
+
+modelo1<- lm(Aprovação_P ~ ., data = dados_completos2) #MODELO COM TODAS AS VARIÁVEIS(INCLUSIVEO INTERCEPTO)
+summary(modelo1)
+
+#MODELO SEM O INTERCEPTO POIS NÃO FOI CONSIDERADO SIGNIFICATIVO
+modelo2<- lm(Aprovação_P ~ -1 + Inflação + PIB+ `porcentagem Dívida Pública em relaçao ao PIB` + `Tx de câmbio`, data = dados_completos2)
+summary(modelo2)
+
+
+#GRAFICO VD
+ggplot(dados_completos, aes(x = Ano, y = Aprovação_P, group = 1)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "red") +
+  ggtitle("Evolução da Aprovação Presidencial ao Longo do Tempo") +
+  xlab("Ano") +
+  ylab("Aprovação Presidencial") +
+  theme_minimal()
+
+#GRÁFICO VIS
+dados_longos <- dados_completos %>%
+  pivot_longer(cols = c("Inflação", "PIB", "porcentagem Dívida Pública em relaçao ao PIB", "Tx de câmbio"),
+               names_to = "Variável",
+               values_to = "Valor")
+
+ggplot(dados_longos, aes(x = Ano, y = Valor, color = Variável, group = Variável)) +
+  geom_line(size = 1) +
+  geom_point() +
+  facet_wrap(~ Variável, scales = "free_y") +  # Cria um gráfico para cada VI
+  ggtitle("Evolução das Variáveis Independentes ao Longo do Tempo") +
+  xlab("Ano") +
+  ylab("Valor das Variáveis") +
+  theme_minimal()
+
+
+
+#GRAFICOS RELAÇÃO VD E VIS (IMPACTO POS. OU NEG.)
+g1 <- ggplot(dados_completos2, aes(x = Inflação, y = Aprovação_P)) +
+  geom_point(color = "#0072B2") +
+  geom_smooth(method = "lm", se = TRUE, color = "#0072B2") +
+  labs(title = "Inflação", x = "Inflação", y = "Aprovação Presidencial") +
+  theme_minimal()
+
+
+g2 <- ggplot(dados_completos2, aes(x = PIB, y = Aprovação_P)) +
+  geom_point(color = "#009E73") +
+  geom_smooth(method = "lm", se = TRUE, color = "#009E73") +
+  labs(title = "PIB", x = "PIB", y = "") +
+  theme_minimal()
+
+
+g3 <- ggplot(dados_completos2, aes(x = `porcentagem Dívida Pública em relaçao ao PIB`, y = Aprovação_P)) +
+  geom_point(color = "#D55E00") +
+  geom_smooth(method = "lm", se = TRUE, color = "#D55E00") +
+  labs(title = "Dívida Pública", x = "Dívida (% do PIB)", y = "") +
+  theme_minimal()
+
+
+g4 <- ggplot(dados_completos2, aes(x = `Tx de câmbio`, y = Aprovação_P)) +
+  geom_point(color = "#CC79A7") +
+  geom_smooth(method = "lm", se = TRUE, color = "#CC79A7") +
+  labs(title = "Taxa de Câmbio", x = "Câmbio (R$/US$)", y = "") +
+  theme_minimal()
+
+
+(g1 | g2) / (g3 | g4)
+
